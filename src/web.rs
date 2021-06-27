@@ -145,7 +145,7 @@ async fn upload_game_stats(config: Config, database: Address<MongoDatabaseHandle
     log::debug!("server '{}' uploaded {} statistics in statistics bundle for {}",
                 game_stats.server_name, game_stats.stats.len(), game_stats.namespace);
 
-    for (_, stats) in game_stats.stats {
+    for (_, stats) in &game_stats.stats {
         for (name, _) in stats {
             if name.contains('.') {
                 return Ok(send_http_status(StatusCode::BAD_REQUEST));
