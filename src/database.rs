@@ -7,7 +7,7 @@ use uuid::Uuid;
 use xtra::{Actor, Context, Handler, Message};
 
 use crate::config::Config;
-use crate::model::{PlayerGameStats, PlayerProfile, GameStatsBundle};
+use crate::model::{PlayerGameStats, PlayerProfile, GameStatsBundle, PlayerStatsResponse};
 use crate::util::uuid_to_bson;
 use std::collections::HashMap;
 
@@ -85,22 +85,32 @@ impl MongoDatabaseHandler {
         }
     }
 
-    async fn get_player_stats(&self, uuid: &Uuid, namespace: &String) -> Result<Option<PlayerGameStats>> {
+    async fn get_player_stats(&self, uuid: &Uuid, namespace: &Option<String>) -> Result<Option<PlayerStatsResponse>> {
         if let None = self.get_player_profile(uuid).await? { // player not found.
             return Ok(None);
         }
 
-        let options = FindOptions::builder().limit(1).build();
-        let stats = self.player_stats().find(doc! {
-            "uuid": uuid_to_bson(uuid)?,
-            "namespace": namespace,
-        }, options).await?.try_next().await?;
+        let options = FindOptions::builder().build();
+        let mut stats = self.player_stats().find(match namespace {
+            Some(namespace) => doc! {
+                "uuid": uuid_to_bson(uuid)?,
+                "namespace": namespace.clone(),
+            },
+            None => doc! {
+                "uuid": uuid_to_bson(uuid)?,
+            },
+        }, options).await?;
 
-        match stats {
-            Some(stats) => Ok(Some(stats)),
-            // send an empty response if they have no stats yet
-            None => Ok(Some(PlayerGameStats::create(uuid, namespace))),
+        let mut final_stats: HashMap<String, HashMap<String, f64>> = HashMap::new();
+        while let Some(stats) = stats.try_next().await? {
+            let mut s = HashMap::new();
+            for (name, stat) in stats.stats {
+                s.insert(name, stat.into());
+            }
+            final_stats.insert(stats.namespace, s);
         }
+
+        Ok(Some(final_stats))
     }
 
     async fn ensure_player_stats_document(&self, uuid: &Uuid, namespace: &String) -> Result<()> {
@@ -172,11 +182,11 @@ impl Handler<UpdatePlayerProfile> for MongoDatabaseHandler {
 
 pub struct GetPlayerStats {
     pub uuid: Uuid,
-    pub namespace: String,
+    pub namespace: Option<String>,
 }
 
 impl Message for GetPlayerStats {
-    type Result = Result<Option<PlayerGameStats>>;
+    type Result = Result<Option<PlayerStatsResponse>>;
 }
 
 #[async_trait]

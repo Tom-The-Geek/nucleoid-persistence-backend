@@ -44,7 +44,15 @@ pub async fn run(config: &Config, database: Address<MongoDatabaseHandler>) {
         .and(warp::path::param::<String>())
         .and_then({
             let database = database.clone();
-            move |uuid, game_mode| get_player_stats(database.clone(), uuid, game_mode)
+            move |uuid, namespace| get_player_stats(database.clone(), uuid, Some(namespace))
+        });
+
+    let all_player_game_stats = warp::path("player")
+        .and(warp::path::param::<Uuid>())
+        .and(warp::path("stats"))
+        .and_then({
+            let database = database.clone();
+            move |uuid| get_player_stats(database.clone(), uuid, None)
         });
 
     let upload_game_stats = warp::path("stats")
@@ -64,6 +72,7 @@ pub async fn run(config: &Config, database: Address<MongoDatabaseHandler>) {
         .or(update_player_profile)
         // Stats
         .or(player_game_stats)
+        .or(all_player_game_stats)
         .or(upload_game_stats);
 
     warp::serve(combined.with(cors))
@@ -73,19 +82,15 @@ pub async fn run(config: &Config, database: Address<MongoDatabaseHandler>) {
 
 type ApiResult = Result<Box<dyn warp::Reply>, warp::Rejection>;
 
-async fn get_player_stats(database: Address<MongoDatabaseHandler>, uuid: Uuid, game_mode: String) -> ApiResult {
+async fn get_player_stats(database: Address<MongoDatabaseHandler>, uuid: Uuid, namespace: Option<String>) -> ApiResult {
     let res = database.send(GetPlayerStats {
         uuid,
-        namespace: game_mode,
+        namespace
     }).await.unwrap();
     return match res {
         Ok(stats) => {
             Ok(if let Some(stats) = stats {
-                let mut stat_values: HashMap<String, f64> = HashMap::new();
-                for (key, value) in stats.stats {
-                    stat_values.insert(key, value.into());
-                }
-                Box::new(warp::reply::json(&stat_values))
+                Box::new(warp::reply::json(&stats))
             } else {
                 send_http_status(StatusCode::NOT_FOUND)
             })

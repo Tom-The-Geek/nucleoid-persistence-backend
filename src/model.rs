@@ -34,16 +34,6 @@ pub struct PlayerGameStats {
     pub stats: HashMap<String, PlayerStat>,
 }
 
-impl PlayerGameStats {
-    pub fn create(uuid: &Uuid, namespace: &String) -> Self {
-        Self {
-            uuid: uuid.clone(),
-            namespace: namespace.clone(),
-            stats: HashMap::new(),
-        }
-    }
-}
-
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "type", content = "value", rename_all = "snake_case")]
 pub enum PlayerStat {
@@ -69,6 +59,8 @@ impl Into<f64> for PlayerStat {
         }
     }
 }
+
+pub type PlayerStatsResponse = HashMap<String, HashMap<String, f64>>;
 
 #[derive(Serialize, Deserialize)]
 pub struct GameStatsBundle {
