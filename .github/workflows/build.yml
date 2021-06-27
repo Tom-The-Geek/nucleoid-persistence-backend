@@ -14,6 +14,11 @@ jobs:
         rust: [stable]
 
     steps:
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo
+          key: cargo-${{ runner.os }}
       - uses: hecrj/setup-rust-action@v1
         with:
           rust-version: ${{ matrix.rust }}
