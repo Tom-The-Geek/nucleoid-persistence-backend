@@ -94,14 +94,27 @@ impl UploadStat {
     /// Generate a BSON document for increasing this value.
     pub fn create_increment_operation(&self, id: &String) -> Document {
         let value_key = format!("stats.{}.value", id);
+        let type_key = format!("stats.{}.type", id);
         let total_key = format!("{}.total", value_key);
         let count_key = format!("{}.count", value_key);
 
         return match self {
-            UploadStat::IntTotal(value) => doc! { "$inc": { value_key: value } },
-            UploadStat::IntRollingAverage(value) => doc! { "$inc": { total_key: value, count_key: 1 } },
-            UploadStat::FloatTotal(value) => doc! { "$inc": { value_key: value } },
-            UploadStat::FloatRollingAverage(value) => doc! { "$inc": { total_key: value, count_key: 1 } },
+            UploadStat::IntTotal(value) => doc! {
+                "$inc": { value_key: value },
+                "$set": { type_key: "int_total" }
+            },
+            UploadStat::IntRollingAverage(value) => doc! {
+                "$inc": { total_key: value, count_key: 1 },
+                "$set": { type_key: "int_rolling_average" }
+            },
+            UploadStat::FloatTotal(value) => doc! {
+                "$inc": { value_key: value },
+                "$set": { type_key: "float_total" }
+            },
+            UploadStat::FloatRollingAverage(value) => doc! {
+                "$inc": { total_key: value, count_key: 1 },
+                "$set": { type_key: "float_rolling_average" }
+            },
         }
     }
 }

@@ -63,7 +63,7 @@ Should be called by the minigame server after a game has finished, to upload the
 | --- | --- | --- |
 | `server_name` | `String` | Name of the server uploading the bundle; eg. `play` (currently unused by the backend) |
 | `namespace` | `String` | The namespace of the game; eg `bed-wars` |
-| `stats` | `Map<UUID, Map<String, UploadStat>>` | An object containing all stats for this game, by player |
+| `stats` | `Map<UUID, Map<String, UploadStat>>` | An object containing all stats for this game, by player. Note: statistic ids cannot contain '.'s |
 
 #### `UploadStat` type
 | Name | Type | Description |
