@@ -45,18 +45,14 @@ impl PlayerGameStats {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(tag = "type", content = "value")]
+#[serde(tag = "type", content = "value", rename_all = "snake_case")]
 pub enum PlayerStat {
-    #[serde(rename = "itotal")]
     IntTotal(i32),
-    #[serde(rename = "iaverage")]
     IntAverage {
         total: i32,
         count: i32,
     },
-    #[serde(rename = "ftotal")]
     FloatTotal(f64),
-    #[serde(rename = "faverage")]
     FloatAverage {
         total: f64,
         count: i32,
