@@ -20,8 +20,8 @@ pub struct PlayerProfileResponse {
 impl From<PlayerProfile> for PlayerProfileResponse {
     fn from(p: PlayerProfile) -> Self {
         Self {
-            uuid: p.uuid.clone(),
-            username: p.username.clone(),
+            uuid: p.uuid,
+            username: p.username,
         }
     }
 }
@@ -80,13 +80,13 @@ pub enum UploadStat {
 
 impl UploadStat {
     /// Generate a BSON document for increasing this value.
-    pub fn create_increment_operation(&self, id: &String) -> Document {
+    pub fn create_increment_operation(&self, id: &str) -> Document {
         let value_key = format!("stats.{}.value", id);
         let type_key = format!("stats.{}.type", id);
         let total_key = format!("{}.total", value_key);
         let count_key = format!("{}.count", value_key);
 
-        return match self {
+        match self {
             UploadStat::IntTotal(value) => doc! {
                 "$inc": { value_key: value },
                 "$set": { type_key: "int_total" }

@@ -76,7 +76,7 @@ impl MongoDatabaseHandler {
             }
             None => {
                 let profile = PlayerProfile {
-                    uuid: uuid.clone(),
+                    uuid: *uuid,
                     username: username.clone(),
                 };
                 self.player_profiles().insert_one(&profile, None).await?;
@@ -86,7 +86,7 @@ impl MongoDatabaseHandler {
     }
 
     async fn get_player_stats(&self, uuid: &Uuid, namespace: &Option<String>) -> Result<Option<PlayerStatsResponse>> {
-        if let None = self.get_player_profile(uuid).await? { // player not found.
+        if self.get_player_profile(uuid).await?.is_none() { // player not found.
             return Ok(None);
         }
 
@@ -113,7 +113,7 @@ impl MongoDatabaseHandler {
         Ok(Some(final_stats))
     }
 
-    async fn ensure_player_stats_document(&self, uuid: &Uuid, namespace: &String) -> Result<()> {
+    async fn ensure_player_stats_document(&self, uuid: &Uuid, namespace: &str) -> Result<()> {
         self.update_player_profile(uuid, None).await?; // Ensure that the player is tracked in the database.
 
         let options = FindOptions::builder().limit(1).build();
@@ -122,10 +122,10 @@ impl MongoDatabaseHandler {
             "namespace": namespace,
         }, options).await?.try_next().await?;
 
-        if let None = stats {
+        if stats.is_none() {
             self.player_stats().insert_one(PlayerGameStats {
-                uuid: uuid.clone(),
-                namespace: namespace.clone(),
+                uuid: *uuid,
+                namespace: namespace.to_string(),
                 stats: HashMap::new(),
             }, None).await?;
         }
