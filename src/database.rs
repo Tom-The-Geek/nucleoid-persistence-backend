@@ -23,7 +23,7 @@ impl MongoDatabaseHandler {
             config: config.clone(),
         };
 
-        // Ping the database to ensure we can connect.
+        // Ping the database to ensure we can connect and so we crash early if we can't
         handler.client.database("admin")
             .run_command(doc! {"ping": 1}, None)
             .await?;
