@@ -10,6 +10,7 @@ use crate::config::Config;
 use crate::model::{PlayerGameStats, PlayerProfile, GameStatsBundle, PlayerStatsResponse, GlobalGameStats};
 use crate::util::uuid_to_bson;
 use std::collections::HashMap;
+use bson::Document;
 
 pub struct MongoDatabaseHandler {
     client: Client,
@@ -36,15 +37,28 @@ impl MongoDatabaseHandler {
     }
 
     fn player_profiles(&self) -> Collection<PlayerProfile> {
-        self.database().collection::<PlayerProfile>("players")
+        self.database().collection("players")
     }
 
     fn player_stats(&self) -> Collection<PlayerGameStats> {
-        self.database().collection::<PlayerGameStats>("player-stats")
+        self.database().collection("player-stats")
     }
 
     fn global_stats(&self) -> Collection<GlobalGameStats> {
-        self.database().collection::<GlobalGameStats>("global-stats")
+        self.database().collection("global-stats")
+    }
+
+    // Used for error handling
+    fn document_player_stats(&self) -> Collection<Document> {
+        self.database().collection("player-stats")
+    }
+
+    fn document_global_stats(&self) -> Collection<Document> {
+        self.database().collection("global-stats")
+    }
+
+    fn corrupt_stats(&self) -> Collection<Document> {
+        self.database().collection("corrupt_stats")
     }
 
     async fn get_player_profile(&self, uuid: &Uuid) -> Result<Option<PlayerProfile>> {
@@ -121,12 +135,21 @@ impl MongoDatabaseHandler {
         self.update_player_profile(uuid, None).await?; // Ensure that the player is tracked in the database.
 
         let options = FindOptions::builder().limit(1).build();
-        let stats = self.player_stats().find(doc! {
+        let mut res = self.player_stats().find(doc! {
             "uuid": uuid_to_bson(uuid)?,
             "namespace": namespace,
-        }, options).await?.try_next().await?;
+        }, options).await?;
+        let stats = res.try_next().await;
 
-        if stats.is_none() {
+        let needs_new_document = match stats {
+            Ok(stats) => stats.is_none(),
+            Err(e) => {
+                self.handle_broken_player_stats_document(&e.into(), uuid, namespace).await?;
+                true
+            }
+        };
+
+        if needs_new_document {
             self.player_stats().insert_one(PlayerGameStats {
                 uuid: *uuid,
                 namespace: namespace.to_string(),
@@ -139,11 +162,21 @@ impl MongoDatabaseHandler {
 
     async fn ensure_global_stats_document(&self, namespace: &str) -> Result<()> {
         let options = FindOptions::builder().limit(1).build();
-        let stats = self.global_stats().find(doc! {
+        let mut res = self.global_stats().find(doc! {
             "namespace": namespace,
-        }, options).await?.try_next().await?;
+        }, options).await?;
 
-        if stats.is_none() {
+        let stats = res.try_next().await;
+
+        let needs_new_document = match stats {
+            Ok(stats) => stats.is_none(),
+            Err(e) => {
+                self.handle_broken_global_stats_document(&e.into(), &namespace).await?;
+                true
+            }
+        };
+
+        if needs_new_document {
             self.global_stats().insert_one(GlobalGameStats {
                 namespace: namespace.to_string(),
                 stats: HashMap::new(),
@@ -173,6 +206,54 @@ impl MongoDatabaseHandler {
                 }, stat.create_increment_operation(&stat_name), None).await?;
             }
         }
+
+        Ok(())
+    }
+
+    async fn handle_broken_player_stats_document(&self, e: &anyhow::Error, uuid: &Uuid, namespace: &str) -> Result<()> {
+        let doc = self.document_player_stats().find_one(doc! {
+            "uuid": uuid_to_bson(uuid)?,
+            "namespace": namespace,
+        }, None).await?;
+
+        if let Some(doc) = doc {
+            self.handle_broken_document(e, &doc, namespace, false).await?;
+            self.document_player_stats().delete_one(doc! {
+                "_id": doc.get("_id").unwrap(),
+            }, None).await?;
+        } else {
+            // This should never happen
+            log::warn!("Missing corrupt document that was there before!? (player: {}, namespace: {})", uuid, namespace);
+        }
+
+        Ok(())
+    }
+
+    async fn handle_broken_global_stats_document(&self, e: &anyhow::Error, namespace: &str) -> Result<()> {
+        let doc = self.document_global_stats().find_one(doc! {
+            "namespace": namespace,
+        }, None).await?;
+
+        if let Some(doc) = doc {
+            self.handle_broken_document(e, &doc, namespace, true).await?;
+            self.document_global_stats().delete_one(doc! {
+                "_id": doc.get("_id").unwrap(),
+            }, None).await?;
+        } else {
+            // This should never happen
+            log::warn!("Missing corrupt document that was there before!? (global; namespace: {})", namespace);
+        }
+
+        Ok(())
+    }
+
+    async fn handle_broken_document(&self, e: &anyhow::Error, document: &Document, namespace: &str, global: bool) -> Result<()> {
+        let mut corrupt_document = document.clone();
+        corrupt_document.remove("_id"); // remove the ID so the driver generates a new one when it is re-inserted
+        let corrupt_id = self.corrupt_stats().insert_one(document, None).await?.inserted_id;
+
+        // TODO: Error reporting (discord webhook probably)
+        log::warn!("Corrupt stats document (not our fault, probably a minigame's)!\nError: {}\nDocument: {}\nNamespace: {}, global: {}", e, document, namespace, global);
 
         Ok(())
     }

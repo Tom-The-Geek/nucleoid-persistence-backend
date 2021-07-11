@@ -105,13 +105,6 @@ impl UploadStat {
         let total_key = format!("{}.total", value_key);
         let count_key = format!("{}.count", value_key);
 
-        // TODO: Figure out a better way than using the $set for the type_key
-        // This can change the type field of a stat which may cause the database state to
-        // become corrupt and unreadable
-        // For example: 'invalid type: floating point `24.5`, expected i32' caused by a statistic's
-        // uploaded type differing from the type stored in the database. This could allow minigames
-        // to brick their statistics and prevent future requests from being handled that reference
-        // the namespace of affected keys.
         match self {
             UploadStat::IntTotal(value) => doc! {
                 "$inc": { value_key: value },
