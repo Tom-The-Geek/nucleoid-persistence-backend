@@ -65,12 +65,6 @@ Should be called by the minigame server after a game has finished, to upload the
 | `namespace` | `String` | The namespace of the game; eg `bed-wars` |
 | `stats` | `Object` | An object containing all stats for this game, including those for players and global stats. See the example for the layout Note: statistic ids cannot contain '.'s. |
 
-#### `UploadStat` type
-| Name | Type | Description |
-| --- | --- | --- |
-| `type` | `String` | The type of statistic this is, currently either `value` or `rolling_average` |
-| `value` | See `Stat types` |
-
 #### Stat types
 | Name | Value type |
 | --- | --- |
