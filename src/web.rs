@@ -150,6 +150,12 @@ async fn upload_game_stats(config: Config, database: Address<MongoDatabaseHandle
     if let Some(global) = &game_stats.stats.global {
         log::debug!("server '{}' uploaded {} player statistics and {} global statistics in statistics bundle for {}",
                 game_stats.server_name, game_stats.stats.players.len(), global.len(), game_stats.namespace);
+
+        for name in global.keys() {
+            if name.contains('.') {
+                return Ok(send_http_status(StatusCode::BAD_REQUEST));
+            }
+        }
     } else {
         log::debug!("server '{}' uploaded {} player statistics in statistics bundle for {}",
                 game_stats.server_name, game_stats.stats.players.len(), game_stats.namespace);
@@ -157,14 +163,6 @@ async fn upload_game_stats(config: Config, database: Address<MongoDatabaseHandle
 
     for stats in game_stats.stats.players.values() {
         for name in stats.keys() {
-            if name.contains('.') {
-                return Ok(send_http_status(StatusCode::BAD_REQUEST));
-            }
-        }
-    }
-
-    if let Some(global) = &game_stats.stats.global {
-        for name in global.keys() {
             if name.contains('.') {
                 return Ok(send_http_status(StatusCode::BAD_REQUEST));
             }
