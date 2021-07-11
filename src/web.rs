@@ -147,11 +147,24 @@ async fn upload_game_stats(config: Config, database: Address<MongoDatabaseHandle
         return Ok(send_http_status(StatusCode::UNAUTHORIZED))
     }
 
-    log::debug!("server '{}' uploaded {} statistics in statistics bundle for {}",
-                game_stats.server_name, game_stats.stats.len(), game_stats.namespace);
+    if let Some(global) = &game_stats.stats.global {
+        log::debug!("server '{}' uploaded {} player statistics and {} global statistics in statistics bundle for {}",
+                game_stats.server_name, game_stats.stats.players.len(), global.len(), game_stats.namespace);
+    } else {
+        log::debug!("server '{}' uploaded {} player statistics in statistics bundle for {}",
+                game_stats.server_name, game_stats.stats.players.len(), game_stats.namespace);
+    }
 
-    for stats in game_stats.stats.values() {
+    for stats in game_stats.stats.players.values() {
         for name in stats.keys() {
+            if name.contains('.') {
+                return Ok(send_http_status(StatusCode::BAD_REQUEST));
+            }
+        }
+    }
+
+    if let Some(global) = &game_stats.stats.global {
+        for name in global.keys() {
             if name.contains('.') {
                 return Ok(send_http_status(StatusCode::BAD_REQUEST));
             }

@@ -7,7 +7,7 @@ use uuid::Uuid;
 use xtra::{Actor, Context, Handler, Message};
 
 use crate::config::Config;
-use crate::model::{PlayerGameStats, PlayerProfile, GameStatsBundle, PlayerStatsResponse};
+use crate::model::{PlayerGameStats, PlayerProfile, GameStatsBundle, PlayerStatsResponse, GlobalGameStats};
 use crate::util::uuid_to_bson;
 use std::collections::HashMap;
 
@@ -41,6 +41,10 @@ impl MongoDatabaseHandler {
 
     fn player_stats(&self) -> Collection<PlayerGameStats> {
         self.database().collection::<PlayerGameStats>("player-stats")
+    }
+
+    fn global_stats(&self) -> Collection<GlobalGameStats> {
+        self.database().collection::<GlobalGameStats>("global-stats")
     }
 
     async fn get_player_profile(&self, uuid: &Uuid) -> Result<Option<PlayerProfile>> {
@@ -133,13 +137,38 @@ impl MongoDatabaseHandler {
         Ok(())
     }
 
+    async fn ensure_global_stats_document(&self, namespace: &str) -> Result<()> {
+        let options = FindOptions::builder().limit(1).build();
+        let stats = self.global_stats().find(doc! {
+            "namespace": namespace,
+        }, options).await?.try_next().await?;
+
+        if stats.is_none() {
+            self.global_stats().insert_one(GlobalGameStats {
+                namespace: namespace.to_string(),
+                stats: HashMap::new(),
+            }, None).await?;
+        }
+
+        Ok(())
+    }
+
     async fn upload_stats_bundle(&self, bundle: GameStatsBundle) -> Result<()> {
-        for (player, stats) in bundle.stats {
+        for (player, stats) in bundle.stats.players {
             // Ensure that there is a document to upload stats to.
             self.ensure_player_stats_document(&player, &bundle.namespace).await?;
             for (stat_name, stat) in stats {
                 self.player_stats().update_one(doc! {
                     "uuid": uuid_to_bson(&player)?,
+                    "namespace": &bundle.namespace,
+                }, stat.create_increment_operation(&stat_name), None).await?;
+            }
+        }
+
+        if let Some(global) = bundle.stats.global {
+            self.ensure_global_stats_document(&bundle.namespace).await?;
+            for (stat_name, stat) in global {
+                self.global_stats().update_one(doc! {
                     "namespace": &bundle.namespace,
                 }, stat.create_increment_operation(&stat_name), None).await?;
             }

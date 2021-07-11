@@ -31,12 +31,18 @@ pub struct PlayerGameStats {
     #[serde(with = "bson::serde_helpers::uuid_as_binary")]
     pub uuid: Uuid,
     pub namespace: String,
-    pub stats: HashMap<String, PlayerStat>,
+    pub stats: HashMap<String, GameStat>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct GlobalGameStats {
+    pub namespace: String,
+    pub stats: HashMap<String, GameStat>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "type", content = "value", rename_all = "snake_case")]
-pub enum PlayerStat {
+pub enum GameStat {
     IntTotal(i32),
     IntAverage {
         total: i32,
@@ -49,24 +55,37 @@ pub enum PlayerStat {
     },
 }
 
-impl Into<f64> for PlayerStat {
+impl Into<f64> for GameStat {
     fn into(self) -> f64 {
         match self {
-            PlayerStat::IntTotal(v) => v as f64,
-            PlayerStat::IntAverage { total, count } => (total as f64) / (count as f64),
-            PlayerStat::FloatTotal(v) => v,
-            PlayerStat::FloatAverage { total, count } => total / (count as f64),
+            GameStat::IntTotal(v) => v as f64,
+            GameStat::IntAverage { total, count } => (total as f64) / (count as f64),
+            GameStat::FloatTotal(v) => v,
+            GameStat::FloatAverage { total, count } => total / (count as f64),
         }
     }
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct GlobalStatsBundle {
+    pub namespace: String,
+    pub stats: HashMap<String, GameStat>,
+}
+
 pub type PlayerStatsResponse = HashMap<String, HashMap<String, f64>>;
+pub type PlayerStatsBundle = HashMap<Uuid, HashMap<String, UploadStat>>;
 
 #[derive(Serialize, Deserialize)]
 pub struct GameStatsBundle {
     pub server_name: String,
     pub namespace: String,
-    pub stats: HashMap<Uuid, HashMap<String, UploadStat>>,
+    pub stats: StatsBundle,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct StatsBundle {
+    pub global: Option<HashMap<String, UploadStat>>,
+    pub players: PlayerStatsBundle,
 }
 
 #[derive(Serialize, Deserialize)]
