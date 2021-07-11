@@ -120,12 +120,13 @@ impl MongoDatabaseHandler {
     async fn ensure_player_stats_document(&self, uuid: &Uuid, namespace: &str) -> Result<()> {
         self.update_player_profile(uuid, None).await?; // Ensure that the player is tracked in the database.
 
-        let count = self.player_stats().count_documents(doc! {
+        let options = FindOptions::builder().limit(1).build();
+        let stats = self.player_stats().find(doc! {
             "uuid": uuid_to_bson(uuid)?,
             "namespace": namespace,
-        }, None).await?;
+        }, options).await?.try_next().await?;
 
-        if count == 0 {
+        if stats.is_none() {
             self.player_stats().insert_one(PlayerGameStats {
                 uuid: *uuid,
                 namespace: namespace.to_string(),
@@ -137,11 +138,12 @@ impl MongoDatabaseHandler {
     }
 
     async fn ensure_global_stats_document(&self, namespace: &str) -> Result<()> {
-        let count = self.global_stats().count_documents(doc! {
+        let options = FindOptions::builder().limit(1).build();
+        let stats = self.global_stats().find(doc! {
             "namespace": namespace,
-        }, None).await?;
+        }, options).await?.try_next().await?;
 
-        if count == 0 {
+        if stats.is_none() {
             self.global_stats().insert_one(GlobalGameStats {
                 namespace: namespace.to_string(),
                 stats: HashMap::new(),
