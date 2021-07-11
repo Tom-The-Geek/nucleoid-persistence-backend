@@ -63,7 +63,7 @@ Should be called by the minigame server after a game has finished, to upload the
 | --- | --- | --- |
 | `server_name` | `String` | Name of the server uploading the bundle; eg. `play` (currently unused by the backend) |
 | `namespace` | `String` | The namespace of the game; eg `bed-wars` |
-| `stats` | `Map<UUID, Map<String, UploadStat>>` | An object containing all stats for this game, by player. Note: statistic ids cannot contain '.'s |
+| `stats` | `Object` | An object containing all stats for this game, including those for players and global stats. See the example for the layout Note: statistic ids cannot contain '.'s. |
 
 #### `UploadStat` type
 | Name | Type | Description |
@@ -83,16 +83,28 @@ Should be called by the minigame server after a game has finished, to upload the
 ```json
 {
   "server_name": "play",
-    "namespace": "example-game",
-    "stats": {
+  "namespace": "example-game",
+  "stats": {
+    "players": {
       "07e92b46838640678f728ab96e606fb7": {
-      "example-1": {
-        "type": "int_value",
-        "value": 10
+        "example-1": {
+          "type": "int_total",
+          "value": 10
+        },
+        "example-2": {
+          "type": "float_rolling_average",
+          "value": 15.2
+        }
+      }
+    },
+    "global": {
+      "example-3": {
+        "type": "int_rollling_average",
+        "value": 42
       },
-      "example-2": {
-        "type": "float_rolling_average",
-        "value": 15.2
+      "example-4": {
+        "type": "float_total",
+        "value": 4.2
       }
     }
   }
