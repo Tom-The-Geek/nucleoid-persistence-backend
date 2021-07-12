@@ -1,3 +1,5 @@
+# ARCHIVED: Development of this has moved to the nucleoid-backend repo [here](https://github.com/NucleoidMC/nucleoid-backend). See [this PR](https://github.com/NucleoidMC/nucleoid-backend/pull/11)
+
 # nucleoid-persistence-backend (name WIP)
 HTTP-based REST API for per-player, per-minigame key-value storage based on MongoDB.
 
